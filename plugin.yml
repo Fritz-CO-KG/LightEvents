@@ -6,6 +6,7 @@ commands:
     description: Admin stuff regarding the event.
     usage: /event <action>
     aliases: [settings, setup, s, e]
+    permission: lightevents.admin
   bingo:
     description: View all bingo items
     usage: /b & /bingo
@@ -14,3 +15,7 @@ commands:
     description: View all teams and their progression
     usage: /teams
     aliases: [t, te]
+  cancel:
+    description: Cancel the server shutdown after the event ended.
+    usage: /cancel
+    permission: lightevents.admin

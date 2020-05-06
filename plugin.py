@@ -99,6 +99,7 @@ randomcode = False
 stopstarter = False
 tocollect = []
 playerinvs = []
+cancel = False
 # Listeners
 
 class QuitListener(PythonListener):
@@ -106,7 +107,7 @@ class QuitListener(PythonListener):
     def onPlayerQuit(self, event):
         global teams
         name = event.getPlayer().getDisplayName()
-        if bingo["stage"] != "playing":
+        if bingo["stage"] != "playing" and bingo["stage"] != "end":
             for team in teams:
                 if name in teams[team]:
                     teams[team].remove(name)
@@ -120,6 +121,11 @@ class JoinListener(PythonListener):
         global diatypebefore
         global teams
 
+        targetplayer = event.getPlayer()
+
+        if bingo["kick"] == True:
+            KICKMSG = "&cSorry, you can't join yet! Please try again in &e&l" + str(bingo["timetostart"]) + " &cseconds."
+            targetplayer.kickPlayer(ChatColor.translateAlternateColorCodes("&", KICKMSG))
         # items
         JOIN_BED = ItemStack(Material.RED_BED, 1)
         JOIN_BED_META = JOIN_BED.getItemMeta()
@@ -131,25 +137,30 @@ class JoinListener(PythonListener):
         joininv = Bukkit.createInventory(None, InventoryType.PLAYER, "teamschoose")
         joininv.setItem(4, JOIN_BED)
 
-        targetplayer = event.getPlayer()
         playername = targetplayer.getDisplayName()
-        PLAYERJOIN = PREFIX + "Welcome to the event, &a" + playername + "!"
-        event.setJoinMessage(ChatColor.translateAlternateColorCodes("&", PLAYERJOIN))
-        PLAYERJOINTITLE = "&2Welcome to the event!"
-        PLAYERJOINSUBTITLE = "&eThe event will start soon!"
-        targetplayer.sendTitle(ChatColor.translateAlternateColorCodes("&", PLAYERJOINTITLE),
-                               ChatColor.translateAlternateColorCodes("&", PLAYERJOINSUBTITLE), 15, 100, 15)
-        targetplayer.setGameMode(GameMode.ADVENTURE)
-        targetplayer.playSound(targetplayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER,
-                               float(1.0), float(1))
-        targetplayer.setFoodLevel(100)
-        targetplayer.setHealthScale(18.0)
-        pinv = targetplayer.getInventory()
-        pinv.clear()
-        pinv.setContents(joininv.getContents())
-        if bingo["kick"] == True:
-            KICKMSG = "&cSorry, you can't join yet! Please try again in &e&l" + str(bingo["timetostart"]) + " &cseconds."
-            targetplayer.kickPlayer(ChatColor.translateAlternateColorCodes("&", KICKMSG))
+        if bingo["stage"] == "playing":
+            inteam = False
+            for team in teams:
+                if playername in teams[team]:
+                    PLAYERJOIN = PREFIX + playername + " &2rejoined the game..."
+                    inteam = True
+            if inteam == False:
+                targetplayer.setGameMode(GameMode.SPECTATOR)
+                PLAYERJOIN = PREFIX + playername + "&2joined as spectator"
+        else:
+            PLAYERJOIN = PREFIX + "Welcome to the event, &a" + playername + "!"
+            PLAYERJOINTITLE = "&2Welcome to the event!"
+            PLAYERJOINSUBTITLE = "&eThe event will start soon!"
+            targetplayer.sendTitle(ChatColor.translateAlternateColorCodes("&", PLAYERJOINTITLE),
+                                   ChatColor.translateAlternateColorCodes("&", PLAYERJOINSUBTITLE), 15, 100, 15)
+            targetplayer.setGameMode(GameMode.ADVENTURE)
+            targetplayer.playSound(targetplayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER,
+                                   float(1.0), float(1))
+            targetplayer.setFoodLevel(100)
+            targetplayer.setHealthScale(18.0)
+            pinv = targetplayer.getInventory()
+            pinv.clear()
+            pinv.setContents(joininv.getContents())
         if spawn is not None:
             targetplayer.teleport(spawn)
         if firstplayer:
@@ -166,6 +177,7 @@ class JoinListener(PythonListener):
             #diatypebefore = bingo["spawnblock"].getType()
             #bingo["spawnblock_before"] = diatypebefore
             bingo["spawnblock"].setType(Material.DRIED_KELP_BLOCK)
+        event.setJoinMessage(ChatColor.translateAlternateColorCodes("&", PLAYERJOIN))
 
 class PlayerDeath(PythonListener):
     @PythonEventHandler(PlayerDeathEvent, EventPriority.LOW)
@@ -200,6 +212,7 @@ class MoveListener(PythonListener):
         global checknow
         global scoreboard_update
         global teamscompleted
+        global cancel
         if bingo["allowmove"] == False:
             event.setCancelled(True)
         if first == True:
@@ -212,7 +225,11 @@ class MoveListener(PythonListener):
                     player.setFireTicks(0)
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "recipe give @a *")
                 event.getPlayer().getLocation().getWorld().setGameRule(GameRule.KEEP_INVENTORY, True)
+                event.getPlayer().getLocation().getWorld().setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, False)
                 first = False
+        if bingo["stage"] == "stop":
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "stop")
+            bukkit["stage"] == "stopped"
         if scoreboard_update == True:
             #Bukkit.broadcastMessage("check!")
             sm = Bukkit.getScoreboardManager()
@@ -227,12 +244,12 @@ class MoveListener(PythonListener):
             #Bukkit.broadcastMessage("ok bar created")
 
             stage = bingo["stage"]
-            if stage == "setup" or stage == "hold_admin" or stage == "hold_teams" or stage == "countdown":
+            if stage == "setup" or stage == "hold_admin" or stage == "hold_teams" or stage == "countdown" or stage == "end":
                 #Bukkit.broadcastMessage("setup-countdown stages")
                 score.getScore("  ").setScore(9)
                 if bingo["timetostart"] == 0:
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "&c&lWaiting...")).setScore(8)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(7)
+                    score.getScore(ChatColor.translateAlternateColorCodes("&", "   ")).setScore(7)
                 else:
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lStarting in")).setScore(8)
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "&b" + str(bingo["timetostart"]) + " &2sec.")).setScore(7)
@@ -256,17 +273,15 @@ class MoveListener(PythonListener):
                 score.getScore(ChatColor.translateAlternateColorCodes("&", "   ")).setScore(6)
                 for player in Bukkit.getOnlinePlayers():
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "&a&lYour Team:")).setScore(5)
-                    noteam = False
+                    urteam = "&7Spectators"
                     max = 0
-                    maxteam = "  "
+                    maxteam = "&6Multiple Teams"
                     for team in teams:
                         if event.getPlayer().getDisplayName() in teams[team]:
-                            noteam = True
-                            score.getScore(ChatColor.translateAlternateColorCodes("&", team)).setScore(4)
-                        if max <= len(teamscompleted[team]):
+                            urteam = team
+                        if max < len(teamscompleted[team]):
                             maxteam = team
-                    if noteam == False:
-                        score.getScore(ChatColor.translateAlternateColorCodes("&", "&7Spectators")).setScore(4)
+                    score.getScore(ChatColor.translateAlternateColorCodes("&", urteam + " ")).setScore(4)
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(3)
                     score.getScore(ChatColor.translateAlternateColorCodes("&", "&6Leading team:")).setScore(2)
                     score.getScore(ChatColor.translateAlternateColorCodes("&", maxteam)).setScore(1)
@@ -331,6 +346,9 @@ class CraftEvent(PythonListener):
                             global stopmanager
                             stopmanager = True
                             bingo["stage"] = "end"
+                            border = event.getWhoClicked().getLocation().getWorld().getWorldBorder()
+                            border.setCenter(event.getWhoClicked().getLocation())
+                            border.setSize(15, 0)
 
 
 class PickupEvent(PythonListener):
@@ -372,6 +390,9 @@ class PickupEvent(PythonListener):
                             global stopmanager
                             stopmanager = True
                             bingo["stage"] = "end"
+                            border = event.getPlayer().getLocation().getWorld().getWorldBorder()
+                            border.setCenter(event.getPlayer().getLocation())
+                            border.setSize(15, 0)
 
 class DamageEvent(PythonListener):
     @PythonEventHandler(EntityDamageEvent, EventPriority.LOW)
@@ -781,6 +802,7 @@ class InventoryListener(PythonListener):
         global diatypebefore
         global spawn
         global tocollect
+        global cancel
         EVENT_COUNTDOWN = "&2Bingo configured!"
         EVENT_COUNTDOWN_SUBTITLE = "&7Bingo can only start when every player is in a team!"
         for player in Bukkit.getOnlinePlayers():
@@ -857,12 +879,12 @@ class InventoryListener(PythonListener):
                         player.sendTitle(ChatColor.translateAlternateColorCodes("&", TITLE), "", 15, 320, 15)
                 if len(playersinteams) == 0:
                     bingo["timetostart"] = 60
-                    bingo["kick"] = False
                 if len(playersinteams) != len(playerlist):
                     bingo["stage"] = "hold_teams"
                 elif bingo["stage"] != "hold_admin" and len(playersinteams) != 0:
                     bingo["timetostart"] = bingo["timetostart"] - 1
 
+        bingo["kick"] = False
         border = rawplayerlist[0].getLocation().getWorld().getWorldBorder()
         border.setSize(100, 3)
         border.setSize(10000, 0)
@@ -885,14 +907,19 @@ class InventoryListener(PythonListener):
                 bingo["timer"]["timerunning"]["sec"] = runningsecs + 1
             sleep(1)
         Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&2The event ended. The server will shut down in 90 seconds."))
-        while bingo["timerestart"] != 0:
-            TIMERRAW = "&c" + str(bingo["timerestart"]) + " seconds until the server stops."
-            TIMER = TextComponent("Time: " + TIMERRAW)
-            TIMER.setColor(BungeeChatColor.GREEN)
+        while bingo["timerestart"] != 0 and stopstarter == False and cancel == False:
+            TIMERRAW = str(bingo["timerestart"]) + " seconds until the server stops."
+            TIMER = TextComponent(TIMERRAW)
+            TIMER.setColor(BungeeChatColor.RED)
             for player in Bukkit.getOnlinePlayers():
                 player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TIMER)
             bingo["timerestart"] = bingo["timerestart"] - 1
-
+            sleep(1)
+        if cancel == True:
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cThe server shutdown was cancelled"))
+            cancel = False
+        else:
+            bingo["stage"] = "stop"
 
 # "timer": {"timetotal": 0, "timerunning": {"sec": 0, "min": 0}}
     def gameruleinv(self):
@@ -1626,6 +1653,7 @@ class LightEvents(PythonPlugin):
         global randomcode
         global tocollect
         global teams
+        global cancel
         commandlow = command.getName().lower()
         bingos = ["b", "bg", "bi", "bin", "bgo", "bingo"]
         if commandlow in bingos:
@@ -1657,6 +1685,9 @@ class LightEvents(PythonPlugin):
             else:
                 NO = PREFIX + "&cYou can only open the bingo inventory when the game starts!"
                 sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes("&", NO))
+            return True
+        elif commandlow == "cancel":
+            cancel = True
             return True
         elif commandlow == "teams":
             if bingo["stage"] == "playing":
