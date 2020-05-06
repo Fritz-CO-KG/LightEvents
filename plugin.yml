@@ -1,0 +1,16 @@
+name: LightEvents
+main: LightEvents
+version: 0.1
+commands:
+  event:
+    description: Admin stuff regarding the event.
+    usage: /event <action>
+    aliases: [settings, setup, s, e]
+  bingo:
+    description: View all bingo items
+    usage: /b & /bingo
+    aliases: [b, bg, bi, bin, bgo]
+  teams:
+    description: View all teams and their progression
+    usage: /teams
+    aliases: [t, te]
