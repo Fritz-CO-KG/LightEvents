@@ -9,7 +9,8 @@ from org.bukkit.boss import BossBar
 from net.md_5.bungee.api import ChatMessageType
 from net.md_5.bungee.api import ChatColor as BungeeChatColor
 from net.md_5.bungee.api.chat import TextComponent
-from sys import path
+import os
+from shutil import copyfile
 from time import sleep
 from random import randint
 from org.bukkit import Bukkit
@@ -40,6 +41,7 @@ from org.bukkit.entity import EntityType
 from org.bukkit.inventory import ItemStack
 from org.bukkit.event.inventory import CraftItemEvent
 from org.bukkit.scoreboard import DisplaySlot
+#from org.bukkit.scheduler import BukkitRunnable
 from org.bukkit.scoreboard import Objective
 from org.bukkit.scoreboard import Scoreboard
 from org.bukkit.scoreboard import ScoreboardManager
@@ -49,14 +51,13 @@ from org.bukkit.scoreboard import ScoreboardManager
 
 DEBUG = True
 PREFIX = "&bBingo&6 > "
-JSON_DIR = "/home/fritz/jsons/"
+JSON_DIR = ""
 HELPALIASES = ["help", "?", "|"]
 STAGE = "setup"
 firstplayer = True
 spawnX = None
 spawnY = None
 spawnZ = None
-path.append(JSON_DIR)
 spawn = None
 diablock = None
 stopmanager = False
@@ -1604,6 +1605,7 @@ class InventoryListener(PythonListener):
 class LightEvents(PythonPlugin):
     def onEnable(self):
         global stopmanager
+        global JSON_DIR
         global presets
         global JSON_DIR
         stopmanager = False
@@ -1634,11 +1636,23 @@ class LightEvents(PythonPlugin):
         pm.registerEvents(self.listener, self)
         manager = threading.Thread(target=LightEvents.manager, args=(self,))
         manager.start()
+        LightEvents.log(self, "Plugin directory is " + str(os.getcwd()) + "/plugins/LightEvents", True)
+        JSON_DIR = str(os.getcwd()) + "/plugins/LightEvents"
+        prevdir = os.getcwd()
+        if os.path.exists(JSON_DIR) == False:
+            LightEvents.log(self, "Creating plugin files...", True)
+            os.chdir(str(os.getcwd()) + "/plugins/")
+            os.mkdir("LightEvents")
+            os.chdir(prevdir)
+        JSON_DIR = JSON_DIR + "/"
+        if os.path.exists(JSON_DIR + "presets.json") == False:
+            LightEvents.log(self, "Creating presets...", True)
+            copyfile(os.getcwd() + "/plugins/lightevents.py.dir/sources/presets.json", JSON_DIR + "presets.json")
         LightEvents.log(self, "Loading jsons", True)
         with open((JSON_DIR + "presets.json"), "r") as jsonloader:
             LightEvents.log(self, "File read", True)
             presets = json.load(jsonloader)
-            LightEvents.log(self, "Jump'n run json loaded!", True)
+            LightEvents.log(self, "Presets json loaded!", True)
         pass
 
     def onDisable(self):
@@ -1782,6 +1796,9 @@ class LightEvents(PythonPlugin):
                 NO = PREFIX + "&cYou can only open the team completation inventory when the game starts!"
                 sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes("&", NO))
             return True
+        elif commandlow == "test":
+            task = 0
+            Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(self, task, 1l, 1l)
         elif commandlow == "event":
             if bingo["admingui"] == True:
                 ITEMS_DROPER = ItemStack(Material.CHEST, 1)
