@@ -20,3 +20,10 @@ extract the contents and put pploader.jar into your server's plugin files.
 3. Download the latest release
 4. Unzip it inside of your plugins directory, there should be a folder called "lightevents.py.dir"
 
+Self-check: 
+The plugin should work IF:
+1. Inside of your minecraft-server folder there are these sub-folders:
+2. /lib with jython.jar
+3. /plugin/lightevents.py.dir with (needed) plugin.py, plugin.yml, sources (with presets.json). (There might also be some other files, you don't have to delete them.)
+
+If something doesn't work, please open a issue at https://github.com/Fritz-CO-KG/LightEvents/issues or dm me on discord (Chrashi_65_1#7032)
