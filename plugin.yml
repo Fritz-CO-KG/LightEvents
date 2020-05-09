@@ -19,7 +19,6 @@ commands:
     description: Cancel the server shutdown after the event ended.
     usage: /cancel
     permission: lightevents.admin
-  test:
-    description: Test performance
-    usage: /test
-    permission: lightevents.admin
+  bp:
+    description: See the team inventory
+    usage: /bp

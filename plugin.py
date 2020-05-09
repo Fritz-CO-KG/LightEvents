@@ -91,16 +91,21 @@ NOTHING.setItemMeta(NOTHING_META)
 
 # bingodict
 create = False
-bingo = {"spawn": False, "spawnblock": False, "spawnblock_before": False, "allowmove": True, "invclick": True, "kick": False, "admingui": True, "stage": "setup", "timer": {"timetotal": 0, "timerunning": {"sec": 0, "min": 0}}, "timetostart": 0,
+bingo = {"hurt": True, "spawn": False, "spawnblock": False, "spawnblock_before": False, "allowmove": True, "invclick": True, "kick": False, "admingui": True, "stage": "setup", "timer": {"timetotal": 0, "timerunning": {"sec": 0, "min": 0}}, "timetostart": 0,
          "preset": "0", "page": 0, "teamsize": 2, "join": False, "stage:": "setup",
          "pvp": {"enabled": False, "after": 0}, "timerestart": 90}
 teams = {"&e&lTeam 1": [], "&e&lTeam 2": [], "&e&lTeam 3": [], "&e&lTeam 4": []}
 teamscompleted = {"&e&lTeam 1": [], "&e&lTeam 2": [], "&e&lTeam 3": [], "&e&lTeam 4": []}
+teamsinvs = {}
+for team in teams:
+    teaminv = Bukkit.createInventory(None, InventoryType.CHEST, "Backpack")
+    teamsinvs[team] = teaminv
 randomcode = False
 stopstarter = False
 tocollect = []
 playerinvs = []
 cancel = False
+sbupd = []
 # Listeners
 
 class QuitListener(PythonListener):
@@ -121,6 +126,7 @@ class JoinListener(PythonListener):
         global diablock
         global diatypebefore
         global teams
+        global sbupd
 
         targetplayer = event.getPlayer()
 
@@ -134,11 +140,23 @@ class JoinListener(PythonListener):
         JOIN_BED_META.setLore(["o(teamsgui)", "LightEvents"])
         JOIN_BED.setItemMeta(JOIN_BED_META)
 
+        sm = Bukkit.getScoreboardManager()
+        board = sm.getNewScoreboard()
+        score = board.registerNewObjective("l", "l")
+        score.setDisplayName(ChatColor.translateAlternateColorCodes("&", "&c&lLoading"))
+        score.setDisplaySlot(DisplaySlot.SIDEBAR)
+        score.getScore(" ").setScore(3)
+        score.getScore(ChatColor.translateAlternateColorCodes("&", "&c&lPlease wait...")).setScore(2)
+        score.getScore("  ").setScore(1)
+        #Bukkit.broadcastMessage("set it now")
+        targetplayer.setScoreboard(board)
+        playername = targetplayer.getDisplayName()
+        sbupd.append(playername)
+
         # inv
         joininv = Bukkit.createInventory(None, InventoryType.PLAYER, "teamschoose")
         joininv.setItem(4, JOIN_BED)
 
-        playername = targetplayer.getDisplayName()
         if bingo["stage"] == "playing":
             inteam = False
             for team in teams:
@@ -162,7 +180,7 @@ class JoinListener(PythonListener):
             pinv = targetplayer.getInventory()
             pinv.clear()
             pinv.setContents(joininv.getContents())
-        if spawn is not None:
+        if spawn is not None and bingo["stage"] not in ["playing", "end"]:
             targetplayer.teleport(spawn)
         if firstplayer:
             firstplayer = False
@@ -225,89 +243,20 @@ class MoveListener(PythonListener):
                     player.teleport(bingo["spawn"])
                     player.setFireTicks(0)
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "recipe give @a *")
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "time set day")
+                bingo["hurt"] = False
                 event.getPlayer().getLocation().getWorld().setGameRule(GameRule.KEEP_INVENTORY, True)
                 event.getPlayer().getLocation().getWorld().setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, False)
+                if Bukkit.getServer().getWorld("world_nether") != None:
+                    Bukkit.getServer().getWorld("world_nether").setGameRule(GameRule.KEEP_INVENTORY, True)
+                    Bukkit.getServer().getWorld("world_nether").setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, False)
+                if Bukkit.getServer().getWorld("world_the_end") != None:
+                    Bukkit.getServer().getWorld("world_the_end").setGameRule(GameRule.KEEP_INVENTORY, True)
+                    Bukkit.getServer().getWorld("world_the_end").setGameRule(GameRule.SPECTATORS_GENERATE_CHUNKS, False)
                 first = False
         if bingo["stage"] == "stop":
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "stop")
             bukkit["stage"] == "stopped"
-        if scoreboard_update == True:
-            #Bukkit.broadcastMessage("check!")
-            sm = Bukkit.getScoreboardManager()
-            #Bukkit.broadcastMessage("scoreboard manager initialisized")
-            board = sm.getNewScoreboard()
-            #Bukkit.broadcastMessage("new scoreboard")
-            score = board.registerNewObjective("aaa", "bbb")
-            #Bukkit.broadcastMessage("displayname")
-            score.setDisplayName(ChatColor.translateAlternateColorCodes("&", "&6&lBingo"))
-            score.setDisplaySlot(DisplaySlot.SIDEBAR)
-
-            #Bukkit.broadcastMessage("ok bar created")
-
-            stage = bingo["stage"]
-            if stage == "setup" or stage == "hold_admin" or stage == "hold_teams" or stage == "countdown" or stage == "end":
-                #Bukkit.broadcastMessage("setup-countdown stages")
-                score.getScore("  ").setScore(9)
-                if bingo["timetostart"] == 0:
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&c&lWaiting...")).setScore(8)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "   ")).setScore(7)
-                else:
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lStarting in")).setScore(8)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&b" + str(bingo["timetostart"]) + " &2sec.")).setScore(7)
-                for player in Bukkit.getOnlinePlayers():
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(6)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&a&lYour Team:")).setScore(5)
-                    noteam = False
-                    for team in teams:
-                        if event.getPlayer().getDisplayName() in teams[team]:
-                            noteam = True
-                            score.getScore(ChatColor.translateAlternateColorCodes("&", team)).setScore(4)
-                    if noteam == False:
-                        score.getScore(ChatColor.translateAlternateColorCodes("&", "&cNo team")).setScore(4)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(2)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(1)
-                    player.setScoreboard(board)
-            elif stage == "playing":
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(9)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lTime elapsed:")).setScore(8)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&b" + str(bingo["timer"]["timerunning"]["min"]) + " &9min. &b" + str(bingo["timer"]["timerunning"]["sec"]) + " &9sec.")).setScore(7)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "   ")).setScore(6)
-                for player in Bukkit.getOnlinePlayers():
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&a&lYour Team:")).setScore(5)
-                    urteam = "&7Spectators"
-                    max = 0
-                    maxteam = "&6Multiple Teams"
-                    for team in teams:
-                        if event.getPlayer().getDisplayName() in teams[team]:
-                            urteam = team
-                        if max < len(teamscompleted[team]):
-                            maxteam = team
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", urteam + " ")).setScore(4)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(3)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&6Leading team:")).setScore(2)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", maxteam)).setScore(1)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(0)
-                    player.setScoreboard(board)
-            elif stage == "end":
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "  ")).setScore(9)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lTime until restart:")).setScore(8)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&b" + str(bingo["timerestart"]) + "&2 sec.")).setScore(7)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "   ")).setScore(6)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lTime played:")).setScore(5)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "&b" + str(bingo["timer"]["timerunning"]["min"]) + " &9min. &b" + str(bingo["timer"]["timerunning"]["sec"]) + " &9sec.")).setScore(4)
-                score.getScore(ChatColor.translateAlternateColorCodes("&", "    ")).setScore(3)
-                for player in Bukkit.getOnlinePlayers():
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&6&lWinner Team:")).setScore(2)
-                    max = 0
-                    maxteam = "  "
-                    for team in teams:
-                        if max < len(teamscompleted[team]):
-                            maxteam = team
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", maxteam)).setScore(1)
-                    score.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(0)
-                    player.setScoreboard(board)
-
-            scoreboard_update = False
 class CraftEvent(PythonListener):
     @PythonEventHandler(CraftItemEvent, EventPriority.NORMAL)
     def onCraft(self, event):
@@ -315,41 +264,43 @@ class CraftEvent(PythonListener):
         global teamscompleted
         global teams
         global bingo
-        if bingo["stage"] == "playing" and event.getView().getTitle() != "Bingo items":
-            item = unicode(event.getCurrentItem().getType().getKey(), "utf-8")
-            name = event.getWhoClicked().getDisplayName()
-            #Bukkit.broadcastMessage(str(item))
-            #Bukkit.broadcastMessage(str(name))
-            for team in teams:
-                if name in teams[team]:
-                    teamname = team
-                    #Bukkit.broadcastMessage(str(teamname))
-            #Bukkit.broadcastMessage(str(tocollect))
-            if item in tocollect:
-                #Bukkit.broadcastMessage(str(teamscompleted))
-                if item not in teamscompleted[teamname]:
-                    for player in teams[teamname]:
-                        COLLECTED = PREFIX + "&2Your team collected item " + str(item) + " !"
-                        Bukkit.getPlayer(player).sendMessage(ChatColor.translateAlternateColorCodes("&", COLLECTED))
-                    teamscompleted[teamname].append(str(item))
-                     #Bukkit.broadcastMessage(str(len(teamscompleted[teamname])))
-                    if len(teamscompleted[teamname]) == 9:
-                        #Bukkit.broadcastMessage("in")
-                        totp = event.getWhoClicked().getLocation()
-                        rawplayerlist = Bukkit.getOnlinePlayers()
-                        for player in rawplayerlist:
-                            if event.getWhoClicked().getDisplayName() != player.getDisplayName():
-                                player.teleport(totp)
-                                player.setGameMode(GameMode.SPECTATOR)
-                            WIN_MAIN = teamname + " &2&lwon!"
-                            WIN_SUB = "&6Time spent: &c" + str(bingo["timer"]["timerunning"]["min"]) + " min " + str(bingo["timer"]["timerunning"]["sec"]) + " sec!"
-                            player.sendTitle(ChatColor.translateAlternateColorCodes("&", WIN_MAIN), ChatColor.translateAlternateColorCodes("&", WIN_SUB), 15, 150, 10)
-                            global stopmanager
-                            stopmanager = True
-                            bingo["stage"] = "end"
-                            border = event.getWhoClicked().getLocation().getWorld().getWorldBorder()
-                            border.setCenter(event.getWhoClicked().getLocation())
-                            border.setSize(15, 0)
+        if event.getCurrentItem() != None:
+            if bingo["stage"] == "playing" and event.getView().getTitle() != "Bingo items" and event.getCurrentItem().getType().getKey() != None:
+                #Bukkit.broadcastMessage("imma look what that item is craftclick")
+                item = unicode(event.getCurrentItem().getType().getKey(), "utf-8")
+                name = event.getWhoClicked().getDisplayName()
+                #Bukkit.broadcastMessage(str(item))
+                #Bukkit.broadcastMessage(str(name))
+                for team in teams:
+                    if name in teams[team]:
+                        teamname = team
+                        #Bukkit.broadcastMessage(str(teamname))
+                #Bukkit.broadcastMessage(str(tocollect))
+                if item in tocollect:
+                    #Bukkit.broadcastMessage(str(teamscompleted))
+                    if item not in teamscompleted[teamname]:
+                        for player in teams[teamname]:
+                            COLLECTED = PREFIX + "&2Your team collected item " + str(item) + " !"
+                            Bukkit.getPlayer(player).sendMessage(ChatColor.translateAlternateColorCodes("&", COLLECTED))
+                        teamscompleted[teamname].append(str(item))
+                         #Bukkit.broadcastMessage(str(len(teamscompleted[teamname])))
+                        if len(teamscompleted[teamname]) == 9:
+                            #Bukkit.broadcastMessage("in")
+                            totp = event.getWhoClicked().getLocation()
+                            rawplayerlist = Bukkit.getOnlinePlayers()
+                            for player in rawplayerlist:
+                                if event.getWhoClicked().getDisplayName() != player.getDisplayName():
+                                    player.teleport(totp)
+                                    player.setGameMode(GameMode.SPECTATOR)
+                                WIN_MAIN = teamname + " &2&lwon!"
+                                WIN_SUB = "&6Time spent: &c" + str(bingo["timer"]["timerunning"]["min"]) + " min " + str(bingo["timer"]["timerunning"]["sec"]) + " sec!"
+                                player.sendTitle(ChatColor.translateAlternateColorCodes("&", WIN_MAIN), ChatColor.translateAlternateColorCodes("&", WIN_SUB), 15, 150, 10)
+                                global stopmanager
+                                stopmanager = True
+                                bingo["stage"] = "end"
+                                border = event.getWhoClicked().getLocation().getWorld().getWorldBorder()
+                                border.setCenter(event.getWhoClicked().getLocation())
+                                border.setSize(15, 0)
 
 
 class PickupEvent(PythonListener):
@@ -400,8 +351,13 @@ class DamageEvent(PythonListener):
     def onDamage(self, event):
         global bingo
         stage = bingo["stage"]
-        if stage == "setup" or stage == "hold_teams" or stage == "hold_admin" or stage == "countdown":
-            event.setCancelled(True)
+        if event.getEntityType() == EntityType.PLAYER:
+            if stage == "setup" or stage == "hold_teams" or stage == "hold_admin" or stage == "countdown":
+                event.setCancelled(True)
+
+            #Bukkit.broadcastMessage(str(bingo["hurt"]))
+            if bingo["hurt"] == False:
+                event.setCancelled(True)
 
 
 class InteractListener(PythonListener):
@@ -552,247 +508,268 @@ class InventoryListener(PythonListener):
         global presets
         global create
         global teams
+        global teamsinvs
         global teamscompleted
-        if event.getCurrentItem() is not None and event.getCurrentItem().getItemMeta() is not None and event.getCurrentItem().getItemMeta().hasLore() == True:
-            item = event.getCurrentItem()
-            meta = item.getItemMeta()
-            lore = meta.getLore()
-            lenlore = len(lore)
-            if lenlore > 0:
-                if lore[-1] == "LightEvents":
-                    event.setCancelled(True)
-                if lenlore > 1 and lore[-1] == "LightEvents":
-                    event.setCancelled(True)
-                elif lenlore > 1 and lore[-2] == "LightEvents":
-                    event.setCancelled(True)
-                elif lenlore > 2 and lore[-3] == "LightEvents":
-                    event.setCancelled(True)
-                if lenlore > 1 and bingo["invclick"] == True:
-                    lore = lore[-1]
-                    word = lore[2:-1]
-                    if lore[0] == "o":
-                        if word == "timer_set":
-                            event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
-                        elif word == "admininv":
-                            event.getWhoClicked().openInventory(InventoryListener.admininv(self))
-                        elif word == "adm_teams":
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "newpreset":
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.newpreset(self, "inventory", event.getInventory()))
-                        elif word == "b_chooseinv":
-                            event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                    elif lore[0] == "x":
-                        event.getWhoClicked().closeInventory()
-                    elif lore[0] == "n":
-                        if word[0] == "-":
-                            # Bukkit.broadcastMessage(("-" + str(word[1:])))
-                            if bingo["page"] != 0:
-                                bingo["page"] = bingo["page"] - int(word[1:])
+        global sbupd
+        if event.getCurrentItem() != None and event.getCurrentItem().hasItemMeta() == True:
+            #Bukkit.broadcastMessage("looking")
+            #it = event.getCurrentItem()
+            #Bukkit.broadcastMessage("okprint")
+            #Bukkit.broadcastMessage(str(it.getType()))
+            #Bukkit.broadcastMessage("meta?")
+            #met = it.hasItemMeta()
+            #Bukkit.broadcastMessage(str(met))
+            #Bukkit.broadcastMessage("k lore?")
+            #Bukkit.broadcastMessage(str(event.getCurrentItem().getItemMeta().hasLore()))
+            if event.getCurrentItem().getItemMeta().hasLore() == True:
+                #Bukkit.broadcastMessage("imma look what that item is invclick")
+                item = event.getCurrentItem()
+                meta = item.getItemMeta()
+                lore = meta.getLore()
+                lenlore = len(lore)
+                if lenlore > 0:
+                    if lore[-1] == "LightEvents":
+                        event.setCancelled(True)
+                    if lenlore > 1 and lore[-1] == "LightEvents":
+                        event.setCancelled(True)
+                    elif lenlore > 1 and lore[-2] == "LightEvents":
+                        event.setCancelled(True)
+                    elif lenlore > 2 and lore[-3] == "LightEvents":
+                        event.setCancelled(True)
+                    if lenlore > 1 and bingo["invclick"] == True:
+                        lore = lore[-1]
+                        word = lore[2:-1]
+                        if lore[0] == "o":
+                            if word == "timer_set":
+                                event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
+                            elif word == "admininv":
+                                event.getWhoClicked().openInventory(InventoryListener.admininv(self))
+                            elif word == "adm_teams":
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "newpreset":
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.newpreset(self, "inventory", event.getInventory()))
+                            elif word == "b_chooseinv":
+                                event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
+                        elif lore[0] == "x":
+                            event.getWhoClicked().closeInventory()
+                        elif lore[0] == "n":
+                            if word[0] == "-":
+                                # Bukkit.broadcastMessage(("-" + str(word[1:])))
+                                if bingo["page"] != 0:
+                                    bingo["page"] = bingo["page"] - int(word[1:])
+                                    # Bukkit.broadcastMessage(str(bingo["page"]))
+                                    event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
+                            else:
+                                # Bukkit.broadcastMessage(("+" + str(word)))
+                                bingo["page"] = bingo["page"] + int(word)
                                 # Bukkit.broadcastMessage(str(bingo["page"]))
                                 event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                        else:
-                            # Bukkit.broadcastMessage(("+" + str(word)))
-                            bingo["page"] = bingo["page"] + int(word)
-                            # Bukkit.broadcastMessage(str(bingo["page"]))
-                            event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                    elif lore[0] == "p":
-                        event.getWhoClicked().openInventory(InventoryListener.presetview(self, str(word), "admin"))
-                    elif lore[0] == "a":
-                        if word == "reset":
-                            bingo["timer"]["timetotal"] = 0
-                            event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
-                        elif word[0] == "-":
-                            amount = float(word[1:])
-                            if amount <= abs(bingo["timer"]["timetotal"]):
-                                bingo["timer"]["timetotal"] = bingo["timer"]["timetotal"] - amount
+                        elif lore[0] == "p":
+                            event.getWhoClicked().openInventory(InventoryListener.presetview(self, str(word), "admin"))
+                        elif lore[0] == "a":
+                            if word == "reset":
+                                bingo["timer"]["timetotal"] = 0
                                 event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
-                        else:
-                            amount = float(word)
-                            bingo["timer"]["timetotal"] = bingo["timer"]["timetotal"] + amount
-                            event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
-                    elif lore[0] == "l":
-                        bingo["preset"] = word
-                        event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                    elif lore[0] == "j":
-                        if len(teams[word]) != bingo["teamsize"]:
-                            for entry in teams:
-                                if event.getWhoClicked().getName() in teams[entry]:
-                                    teams[entry].remove(event.getWhoClicked().getName())
-                            teams[word].append(event.getWhoClicked().getName())
-                            TEAMJOIN = PREFIX + "&2You joined " + word + "&2!"
-                            event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOIN))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "player", event.getWhoClicked().getName()))
-                        else:
-                            TEAMJOINFAIL = PREFIX + "&cCannot join team " + word + ".&c Team is full!"
-                            event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOINFAIL))
-                    elif lore[0] == "!":
-                        if len(teams[word]) != bingo["teamsize"]:
-                            for entry in teams:
-                                if event.getWhoClicked().getName() in teams[entry]:
-                                    teams[entry].remove(event.getWhoClicked().getName())
-                            teams[word].append(event.getWhoClicked().getName())
-                            TEAMJOIN = PREFIX + "&2You joined " + word + "&2!"
-                            event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOIN))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        else:
-                            TEAMJOINFAIL = PREFIX + "&cCannot join team " + word + ".&c Team is full!"
-                            event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOINFAIL))
-                    elif lore[0] == "k":
-                        teams[word] = []
-                        TEAMKICK = PREFIX + "&cKlicked all members of team " + word + "!"
-                        event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMKICK))
-                        event.getWhoClicked().openInventory(
-                            InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                    elif lore[0] == "z":
-                        if word == "addteam":
-                            if len(teams) < 9:
-                                toaddnum = len(teams) + 1
-                                teamname = "&e&lTeam " + str(toaddnum)
-                                teams[teamname] = []
-                                teamscompleted[teamname] = []
-                                # Bukkit.broadcastMessage(str(list(teams)))
-                                list(teams).sort()
-                                # Bukkit.broadcastMessage(" ")
-                                # Bukkit.broadcastMessage(str(list(teams)))
-                                event.getWhoClicked().sendMessage(
-                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Team added!"))
+                            elif word[0] == "-":
+                                amount = float(word[1:])
+                                if amount <= abs(bingo["timer"]["timetotal"]):
+                                    bingo["timer"]["timetotal"] = bingo["timer"]["timetotal"] - amount
+                                    event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
                             else:
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cCould not add team, team limit reached!"))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "on":
-                            bingo["join"] = True
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "off":
-                            bingo["join"] = False
-                            for team in list(teams):
-                                teams[team] = []
-                            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                           PREFIX + "&cEvery player got kicked out by an admin!\n" + PREFIX + "Please join again as teams get enabled again!"))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "remteam":
-                            if len(teams) > 1:
-                                teamname = "&e&lTeam " + str(len(teams))
-                                del teams[teamname]
-                                del teamscompleted[teamname]
-                                event.getWhoClicked().sendMessage(
-                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Team removed!"))
-                            else:
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                                         PREFIX + "&cCould not remove team, you must at least have 1 team!"))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "addteamsiz":
-                            if bingo["teamsize"] < 5:
-                                bingo["teamsize"] = bingo["teamsize"] + 1
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                                         PREFIX + "&2Team size increased to " + str(
-                                                                                                             bingo[
-                                                                                                                 "teamsize"]) + "!"))
-                            else:
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                                         PREFIX + "&cCould increase team size, max. team size is 5!"))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "remteamsiz":
-                            if bingo["teamsize"] > 1:
-                                bingo["teamsize"] = bingo["teamsize"] - 1
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                                         PREFIX + "&2Team size decreased to " + str(
-                                                                                                             bingo[
-                                                                                                                 "teamsize"]) + "!"))
-                            else:
-                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
-                                                                                                         PREFIX + "&cCould decrease team size, min. team size is 1!"))
-                            event.getWhoClicked().openInventory(
-                                InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
-                        elif word == "reload":
-                            with open((JSON_DIR + "presets.json"), "r") as jsonloader:
-                                presets = json.load(jsonloader)
-                                event.getWhoClicked().sendMessage(
-                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Reload complete!"))
+                                amount = float(word)
+                                bingo["timer"]["timetotal"] = bingo["timer"]["timetotal"] + amount
+                                event.getWhoClicked().openInventory(InventoryListener.timeinv(self, "admin"))
+                        elif lore[0] == "l":
+                            bingo["preset"] = word
                             event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                        elif word == "start":
-                            starter = threading.Thread(target=InventoryListener.event_starter, args=(self,))
-                            starter.start()
-                            event.getWhoClicked().openInventory(InventoryListener.admininv(self))
-                        elif word == "creatpres":
-                            tosav = []
-                            saveditems = []
-                            topinv = event.getWhoClicked().getOpenInventory().getTopInventory()
+                        elif lore[0] == "j":
+                            if len(teams[word]) != bingo["teamsize"]:
+                                for entry in teams:
+                                    if event.getWhoClicked().getName() in teams[entry]:
+                                        teams[entry].remove(event.getWhoClicked().getName())
+                                teams[word].append(event.getWhoClicked().getName())
+                                TEAMJOIN = PREFIX + "&2You joined " + word + "&2!"
+                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOIN))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "player", event.getWhoClicked().getName()))
+                                sbupd.append(event.getWhoClicked().getName())
+                            else:
+                                TEAMJOINFAIL = PREFIX + "&cCannot join team " + word + ".&c Team is full!"
+                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOINFAIL))
+                        elif lore[0] == "!":
+                            if len(teams[word]) != bingo["teamsize"]:
+                                for entry in teams:
+                                    if event.getWhoClicked().getName() in teams[entry]:
+                                        teams[entry].remove(event.getWhoClicked().getName())
+                                teams[word].append(event.getWhoClicked().getName())
+                                TEAMJOIN = PREFIX + "&2You joined " + word + "&2!"
+                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOIN))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                                sbupd.append(event.getWhoClicked().getName())
+                            else:
+                                TEAMJOINFAIL = PREFIX + "&cCannot join team " + word + ".&c Team is full!"
+                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMJOINFAIL))
+                        elif lore[0] == "k":
+                            for members in teams[word]:
+                                TEAMKICK = PREFIX + "&cKlicked " + members + " of team " + word + "!"
+                                event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", TEAMKICK))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                                sbupd.append(members)
+                                Bukkit.getPlayer(members).sendMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cYou got kicked out of your team!"))
+                            teams[word] = []
+                        elif lore[0] == "z":
+                            if word == "addteam":
+                                if len(teams) < 9:
+                                    toaddnum = len(teams) + 1
+                                    teamname = "&e&lTeam " + str(toaddnum)
+                                    teams[teamname] = []
+                                    teamscompleted[teamname] = []
+                                    teaminv = Bukkit.createInventory(None, InventoryType.CHEST, "Backpack")
+                                    teamsinvs[teamname] = teaminv
+                                    # Bukkit.broadcastMessage(str(list(teams)))
+                                    list(teams).sort()
+                                    # Bukkit.broadcastMessage(" ")
+                                    # Bukkit.broadcastMessage(str(list(teams)))
+                                    event.getWhoClicked().sendMessage(
+                                        ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Team added!"))
+                                else:
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cCould not add team, team limit reached!"))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "on":
+                                bingo["join"] = True
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "off":
+                                bingo["join"] = False
+                                for team in list(teams):
+                                    teams[team] = []
+                                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                               PREFIX + "&cEvery player got kicked out by an admin!\n" + PREFIX + "Please join again as teams get enabled again!"))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "remteam":
+                                if len(teams) > 1:
+                                    teamname = "&e&lTeam " + str(len(teams))
+                                    del teams[teamname]
+                                    del teamscompleted[teamname]
+                                    del teamsinvs[teamname]
+                                    event.getWhoClicked().sendMessage(
+                                        ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Team removed!"))
+                                else:
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                                             PREFIX + "&cCould not remove team, you must at least have 1 team!"))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "addteamsiz":
+                                if bingo["teamsize"] < 5:
+                                    bingo["teamsize"] = bingo["teamsize"] + 1
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                                             PREFIX + "&2Team size increased to " + str(
+                                                                                                                 bingo[
+                                                                                                                     "teamsize"]) + "!"))
+                                else:
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                                             PREFIX + "&cCould increase team size, max. team size is 5!"))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "remteamsiz":
+                                if bingo["teamsize"] > 1:
+                                    bingo["teamsize"] = bingo["teamsize"] - 1
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                                             PREFIX + "&2Team size decreased to " + str(
+                                                                                                                 bingo[
+                                                                                                                     "teamsize"]) + "!"))
+                                else:
+                                    event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&",
+                                                                                                             PREFIX + "&cCould decrease team size, min. team size is 1!"))
+                                event.getWhoClicked().openInventory(
+                                    InventoryListener.teamgui(self, "admin", event.getWhoClicked().getName()))
+                            elif word == "reload":
+                                with open((JSON_DIR + "presets.json"), "r") as jsonloader:
+                                    presets = json.load(jsonloader)
+                                    event.getWhoClicked().sendMessage(
+                                        ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Reload complete!"))
+                                event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
+                            elif word == "start":
+                                starter = threading.Thread(target=InventoryListener.event_starter, args=(self,))
+                                starter.start()
+                                event.getWhoClicked().openInventory(InventoryListener.admininv(self))
+                            elif word == "creatpres":
+                                tosav = []
+                                saveditems = []
+                                topinv = event.getWhoClicked().getOpenInventory().getTopInventory()
 
-                            i11 = topinv.getItem(11).getType().getKey()
-                            i12 = topinv.getItem(12).getType().getKey()
-                            i13 = topinv.getItem(13).getType().getKey()
+                                i11 = topinv.getItem(11).getType().getKey()
+                                i12 = topinv.getItem(12).getType().getKey()
+                                i13 = topinv.getItem(13).getType().getKey()
 
-                            i15 = topinv.getItem(15).getType().getKey()
+                                i15 = topinv.getItem(15).getType().getKey()
 
-                            i20 = topinv.getItem(20).getType().getKey()
-                            i21 = topinv.getItem(21).getType().getKey()
-                            i22 = topinv.getItem(22).getType().getKey()
+                                i20 = topinv.getItem(20).getType().getKey()
+                                i21 = topinv.getItem(21).getType().getKey()
+                                i22 = topinv.getItem(22).getType().getKey()
 
-                            i29 = topinv.getItem(29).getType().getKey()
-                            i30 = topinv.getItem(30).getType().getKey()
-                            i31 = topinv.getItem(31).getType().getKey()
+                                i29 = topinv.getItem(29).getType().getKey()
+                                i30 = topinv.getItem(30).getType().getKey()
+                                i31 = topinv.getItem(31).getType().getKey()
 
-                            tosav.append(i15)
-                            tosav.append(i11)
-                            tosav.append(i12)
-                            tosav.append(i13)
-                            tosav.append(i20)
-                            tosav.append(i21)
-                            tosav.append(i22)
-                            tosav.append(i29)
-                            tosav.append(i30)
-                            tosav.append(i31)
+                                tosav.append(i15)
+                                tosav.append(i11)
+                                tosav.append(i12)
+                                tosav.append(i13)
+                                tosav.append(i20)
+                                tosav.append(i21)
+                                tosav.append(i22)
+                                tosav.append(i29)
+                                tosav.append(i30)
+                                tosav.append(i31)
 
-                            # for i in range(0, 45):
-                            #    if event.getWhoClicked().getOpenInventory().getTopInventory().getItem(i).hasItemMeta() == False:
-                            #        savitems.append(event.getWhoClicked().getOpenInventory().getTopInventory().getItem(i).getKey())
+                                # for i in range(0, 45):
+                                #    if event.getWhoClicked().getOpenInventory().getTopInventory().getItem(i).hasItemMeta() == False:
+                                #        savitems.append(event.getWhoClicked().getOpenInventory().getTopInventory().getItem(i).getKey())
 
-                            presetnum = len(presets)
-                            num = 0
-                            toappend = {}
-                            for entries in tosav:
-                                # REG = PREFIX + "Registered item " + str(unicode(entries, 'utf-8'))
-                                # event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", REG))
-                                saveditems.append(unicode(entries, 'utf-8'))
-                                toappend[unicode(str(num), 'utf-8')] = unicode(entries, 'utf-8')
-                                num = num + 1
-                            # Bukkit.broadcastMessage(str(toappend))
-                            presets[unicode(str(presetnum), 'utf-8')] = toappend
-                            # Bukkit.broadcastMessage(str(presets))
+                                presetnum = len(presets)
+                                num = 0
+                                toappend = {}
+                                for entries in tosav:
+                                    # REG = PREFIX + "Registered item " + str(unicode(entries, 'utf-8'))
+                                    # event.getWhoClicked().sendMessage(ChatColor.translateAlternateColorCodes("&", REG))
+                                    saveditems.append(unicode(entries, 'utf-8'))
+                                    toappend[unicode(str(num), 'utf-8')] = unicode(entries, 'utf-8')
+                                    num = num + 1
+                                # Bukkit.broadcastMessage(str(toappend))
+                                presets[unicode(str(presetnum), 'utf-8')] = toappend
+                                # Bukkit.broadcastMessage(str(presets))
 
-                            event.getWhoClicked().sendMessage(
-                                ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Preset created!"))
-                            with open((JSON_DIR + "presets.json"), "w") as jsonloader:
-                                jsn_dump = json.dumps(presets, indent=4)
-                                jsonloader.write(jsn_dump)
                                 event.getWhoClicked().sendMessage(
-                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Presets saved!"))
-                            event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
-                        elif word == "resumetimer":
-                            bingo["stage"] = "countdown"
-                            event.getWhoClicked().openInventory(InventoryListener.admininv(self))
-                        elif word == "pausetimer":
-                            bingo["stage"] = "hold_admin"
-                            event.getWhoClicked().openInventory(InventoryListener.admininv(self))
+                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Preset created!"))
+                                with open((JSON_DIR + "presets.json"), "w") as jsonloader:
+                                    jsn_dump = json.dumps(presets, indent=4)
+                                    jsonloader.write(jsn_dump)
+                                    event.getWhoClicked().sendMessage(
+                                        ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Presets saved!"))
+                                event.getWhoClicked().openInventory(InventoryListener.binv(self, "admin"))
+                            elif word == "resumetimer":
+                                bingo["stage"] = "countdown"
+                                event.getWhoClicked().openInventory(InventoryListener.admininv(self))
+                            elif word == "pausetimer":
+                                bingo["stage"] = "hold_admin"
+                                event.getWhoClicked().openInventory(InventoryListener.admininv(self))
 
-                        elif word == "rlcheck":
-                            if event.getWhoClicked().getOpenInventory().getTitle() == "Create Preset":
-                                InventoryListener.newpreset(self, "update", event.getWhoClicked().getOpenInventory())
-                        elif word == "save":
-                            with open((JSON_DIR + "presets.json"), "w") as jsonloader:
-                                jsn_dump = json.dumps(presets, indent=4)
-                                jsonloader.write(jsn_dump)
-                                event.getWhoClicked().sendMessage(
-                                    ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Presets saved!"))
+                            elif word == "rlcheck":
+                                if event.getWhoClicked().getOpenInventory().getTitle() == "Create Preset":
+                                    InventoryListener.newpreset(self, "update", event.getWhoClicked().getOpenInventory())
+                            elif word == "save":
+                                with open((JSON_DIR + "presets.json"), "w") as jsonloader:
+                                    jsn_dump = json.dumps(presets, indent=4)
+                                    jsonloader.write(jsn_dump)
+                                    event.getWhoClicked().sendMessage(
+                                        ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Presets saved!"))
 
     def event_starter(self):
         global bingo
@@ -804,6 +781,7 @@ class InventoryListener(PythonListener):
         global spawn
         global tocollect
         global cancel
+        global sbupd
         EVENT_COUNTDOWN = "&2Bingo configured!"
         EVENT_COUNTDOWN_SUBTITLE = "&7Bingo can only start when every player is in a team!"
         for player in Bukkit.getOnlinePlayers():
@@ -885,29 +863,37 @@ class InventoryListener(PythonListener):
                 elif bingo["stage"] != "hold_admin" and len(playersinteams) != 0:
                     bingo["timetostart"] = bingo["timetostart"] - 1
 
-        bingo["kick"] = False
-        border = rawplayerlist[0].getLocation().getWorld().getWorldBorder()
-        border.setSize(100, 3)
-        border.setSize(10000, 0)
-        for player in rawplayerlist:
-            TITLE = "&6&lSTART"
-            GL = "&2&lHave fun!"
-            player.sendTitle(ChatColor.translateAlternateColorCodes("&", TITLE), ChatColor.translateAlternateColorCodes("&", GL), 15, 50, 10)
-        bingo["stage"] = "playing"
-        bingo["allowmove"] = True
-        for item in presets[bingo["preset"]]:
-            tocollect.append(presets[bingo["preset"]][item])
-        del tocollect[0]
+        if stopstarter == False:
+            bingo["kick"] = False
+            border = rawplayerlist[0].getLocation().getWorld().getWorldBorder()
+            border.setSize(100, 3)
+            border.setSize(10000, 0)
+            for player in rawplayerlist:
+                TITLE = "&6&lSTART"
+                GL = "&2&lHave fun!"
+                player.sendTitle(ChatColor.translateAlternateColorCodes("&", TITLE), ChatColor.translateAlternateColorCodes("&", GL), 15, 50, 10)
+            bingo["stage"] = "playing"
+            bingo["allowmove"] = True
+            for item in presets[bingo["preset"]]:
+                tocollect.append(presets[bingo["preset"]][item])
+            del tocollect[0]
+        first = True
         while bingo["timer"]["timerunning"]["min"] != bingo["timer"]["timetotal"] and stopstarter == False and bingo["stage"] != "end":
             runningsecs = bingo["timer"]["timerunning"]["sec"]
             runningmins = bingo["timer"]["timerunning"]["min"]
+            if first == True:
+                if bingo["timer"]["timerunning"]["sec"] == 59:
+                    bingo["hurt"] = True
+                    Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&2Damage enabled!"))
+                    first = False
             if runningsecs == 59:
                 bingo["timer"]["timerunning"]["sec"] = 0
                 bingo["timer"]["timerunning"]["min"] = runningmins + 1
             else:
                 bingo["timer"]["timerunning"]["sec"] = runningsecs + 1
             sleep(1)
-        Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&2The event ended. The server will shut down in 90 seconds."))
+        if stopstarter == False:
+            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&2The event ended. The server will shut down in 90 seconds."))
         while bingo["timerestart"] != 0 and stopstarter == False and cancel == False:
             TIMERRAW = str(bingo["timerestart"]) + " seconds until the server stops."
             TIMER = TextComponent(TIMERRAW)
@@ -916,11 +902,12 @@ class InventoryListener(PythonListener):
                 player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TIMER)
             bingo["timerestart"] = bingo["timerestart"] - 1
             sleep(1)
-        if cancel == True:
-            Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cThe server shutdown was cancelled"))
-            cancel = False
-        else:
-            bingo["stage"] = "stop"
+        if stopstarter == False:
+            if cancel == True:
+                Bukkit.broadcastMessage(ChatColor.translateAlternateColorCodes("&", PREFIX + "&cThe server shutdown was cancelled"))
+                cancel = False
+            else:
+                bingo["stage"] = "stop"
 
 # "timer": {"timetotal": 0, "timerunning": {"sec": 0, "min": 0}}
     def gameruleinv(self):
@@ -1668,6 +1655,7 @@ class LightEvents(PythonPlugin):
         global tocollect
         global teams
         global cancel
+        global teamsinvs
         commandlow = command.getName().lower()
         bingos = ["b", "bg", "bi", "bin", "bgo", "bingo"]
         if commandlow in bingos:
@@ -1796,9 +1784,17 @@ class LightEvents(PythonPlugin):
                 NO = PREFIX + "&cYou can only open the team completation inventory when the game starts!"
                 sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes("&", NO))
             return True
-        elif commandlow == "test":
-            task = 0
-            Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(self, task, 1l, 1l)
+        elif commandlow == "bp":
+            #Bukkit.broadcastMessage(str(teamsinvs))
+            if bingo["stage"] == "playing":
+                playername = sender.getPlayer().getDisplayName()
+                for team in teams:
+                    if playername in teams[team]:
+                        sender.getPlayer().openInventory(teamsinvs[team])
+            else:
+                NO = PREFIX + "&cYou can only open the backpack when the game starts!"
+                sender.getPlayer().sendMessage(ChatColor.translateAlternateColorCodes("&", NO))
+            return True
         elif commandlow == "event":
             if bingo["admingui"] == True:
                 ITEMS_DROPER = ItemStack(Material.CHEST, 1)
@@ -1903,12 +1899,44 @@ class LightEvents(PythonPlugin):
         global bingo
         global teams
         global scoreboard_update
+        global sbupd
+        global teamscompleted
         title = True
         bf = False
         MSG = "&c&lERROR - MSG NOT SET!"
         COL = BarColor.WHITE
         while stopmanager != True:
+            upds = False
+            gr = False
+            for player in sbupd:
+                ScB = Bukkit.getPlayer(player)
+                if ScB != None:
+                    ScB = ScB.getScoreboard()
+                    objective = ScB.getObjective(DisplaySlot.SIDEBAR)
+                    if objective != None:
+                        if ChatColor.translateAlternateColorCodes("&", "&6&lBingo Setup") or objective.getDisplayName() == ChatColor.translateAlternateColorCodes("&", "&6&lBingo Setup"):
+                            objective.unregister()
+                            newobj = ScB.registerNewObjective("w", "w")
+                            newobj.setDisplayName(ChatColor.translateAlternateColorCodes("&", "&6&lBingo Setup"))
+                            newobj.setDisplaySlot(DisplaySlot.SIDEBAR)
+                            newobj.getScore(" ").setScore(9)
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&3&lSetting up...")).setScore(8)
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&7Please wait...")).setScore(7)
+                            newobj.getScore("  ").setScore(6)
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&e&lYour team:")).setScore(5)
+                            inteam = "&c&lNo team"
+                            for team in teams:
+                                if player in teams[team]:
+                                    inteam = team
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", inteam)).setScore(4)
+                            newobj.getScore("   ").setScore(3)
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&6Bingo will start soon")).setScore(2)
+                            newobj.getScore("    ").setScore(1)
+                            newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(0)
+                            Bukkit.getPlayer(player).setScoreboard(ScB)
+                            sbupd.remove(unicode(player, "utf-8"))
             if bingo["stage"] == "setup":
+                #Bukkit.broadcastMessage(str(sbupd))
                 if bingo["join"] == False:
                     title = True
                     if bf == True:
@@ -1935,16 +1963,20 @@ class LightEvents(PythonPlugin):
             elif bingo["stage"] == "countdown":
                 COL = BarColor.GREEN
                 MSG = "&2&lBingo will start in " + str(bingo["timetostart"]) + " seconds"
+                upds = True
                 for player in Bukkit.getOnlinePlayers():
                     player.setLevel(bingo["timetostart"])
 
             elif bingo["stage"] == "hold_teams":
                 COL = BarColor.YELLOW
                 MSG = "&e&lTimer hold at " + str(bingo["timetostart"]) + " seconds, not every player is in a team!"
+                upds = True
             elif bingo["stage"] == "hold_admin":
                 COL = BarColor.YELLOW
                 MSG = "&e&lTimer hold at " + str(bingo["timetostart"]) + " seconds, admin needs to change things!"
+                upds = True
             elif bingo["stage"] == "playing":
+                gr = True
                 remainingmins = bingo["timer"]["timetotal"] - bingo["timer"]["timerunning"]["min"]
                 secsin = bingo["timer"]["timerunning"]["sec"]
                 if secsin == 0:
@@ -1969,7 +2001,64 @@ class LightEvents(PythonPlugin):
                 setupbar.addPlayer(player.getPlayer())
 
             #Scoreboard
-
+            if upds == True:
+                for player in Bukkit.getOnlinePlayers():
+                    ScB = player.getScoreboard()
+                    objective = ScB.getObjective(DisplaySlot.SIDEBAR)
+                    if objective != None:
+                        #Bukkit.broadcastMessage(objective.getCriteria())
+                        objective.unregister()
+                        newobj = ScB.registerNewObjective("c", "c")
+                        newobj.setDisplayName(ChatColor.translateAlternateColorCodes("&", "&6&lBingo"))
+                        newobj.setDisplaySlot(DisplaySlot.SIDEBAR)
+                        newobj.getScore(" ").setScore(9)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&3&lTime to start:")).setScore(8)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&7" + str(bingo["timetostart"]) + " seconds")).setScore(7)
+                        newobj.getScore("  ").setScore(6)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lYour team:")).setScore(5)
+                        inteam = "&c&lNo team"
+                        for team in teams:
+                            if player.getDisplayName() in teams[team]:
+                                inteam = team
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", inteam)).setScore(4)
+                        newobj.getScore("   ").setScore(3)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&6Bingo is in startup")).setScore(2)
+                        newobj.getScore("    ").setScore(1)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(0)
+                        player.setScoreboard(ScB)
+            elif gr == True:
+                max = 0
+                maxteam = "&6Multiple"
+                for team in teamscompleted:
+                    if len(teamscompleted[team]) > max:
+                        max = len(teamscompleted[team])
+                        maxteam = team
+                for player in Bukkit.getOnlinePlayers():
+                    ScB = player.getScoreboard()
+                    objective = ScB.getObjective(DisplaySlot.SIDEBAR)
+                    if objective != None:
+                        #Bukkit.broadcastMessage(objective.getCriteria())
+                        objective.unregister()
+                        newobj = ScB.registerNewObjective("p", "p")
+                        newobj.setDisplayName(ChatColor.translateAlternateColorCodes("&", "&6&lBingo"))
+                        newobj.setDisplaySlot(DisplaySlot.SIDEBAR)
+                        newobj.getScore(" ").setScore(10)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&3&lTime played:")).setScore(9)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&7" + str(bingo["timer"]["timerunning"]["min"]) + " min " + str(bingo["timer"]["timerunning"]["sec"]) + " sec")).setScore(8)
+                        newobj.getScore("  ").setScore(7)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lYour team:")).setScore(6)
+                        inteam = "&c&lNo team"
+                        for team in teams:
+                            if player.getDisplayName() in teams[team]:
+                                inteam = team
+                                teamcol = len(teamscompleted[inteam])
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", inteam + " (" + str(teamcol) + ") ")).setScore(5)
+                        newobj.getScore("   ").setScore(4)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&6&lLeading team:")).setScore(3)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", maxteam + " (" + str(max) + ")")).setScore(2)
+                        newobj.getScore("    ").setScore(1)
+                        newobj.getScore(ChatColor.translateAlternateColorCodes("&", "&2&lHosted by Quashi")).setScore(0)
+                        player.setScoreboard(ScB)
             sleep(1)
             scoreboard_update = True
             setupbar.removeAll()
