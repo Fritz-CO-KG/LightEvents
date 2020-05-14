@@ -22,3 +22,6 @@ commands:
   bp:
     description: See the team inventory
     usage: /bp
+  shutdown:
+    description: When the server shutdown got cancelled, "uncancel" it to delete all remaining worlds and kick all players.
+    usage: /shutdown
